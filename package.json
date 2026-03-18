@@ -1,0 +1,24 @@
+{
+  "name": "kien-thu-tien-mung",
+  "version": "1.0.0",
+  "description": "Quản lý tiền mừng cưới - Wedding Gift Manager",
+  "main": "index.html",
+  "scripts": {
+    "keepalive": "node keepalive.js",
+    "start": "npx http-server -p 8080"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.2"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "keywords": [
+    "wedding",
+    "gift",
+    "money",
+    "vietnamese"
+  ],
+  "author": "Kien Thu",
+  "license": "MIT"
+}

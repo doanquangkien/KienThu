@@ -1,0 +1,42 @@
+name: Supabase Keepalive
+
+# Chạy mỗi 5 ngày một lần (0h UTC)
+on:
+  schedule:
+    # 0 0 */5 * * = Mỗi 5 ngày lúc 0h UTC
+    - cron: '0 0 */5 * *'
+  
+  # Cho phép chạy thủ công
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Ping Supabase
+        run: |
+          node -e "
+          const url = 'https://eyfuinpxbsegydvopimf.supabase.co/rest/v1/tien_mung?limit=1';
+          const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZnVpbnB4YnNlZ3lkdm9waW1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTg5ODUsImV4cCI6MjA4ODI3NDk4NX0.Z0gRct2EuwnP9Do1aP_IZSELUVrsQl7hAoWOfrVcWso';
+          fetch(url, {
+            headers: {
+              'apikey': key,
+              'Authorization': 'Bearer ' + key
+            }
+          })
+          .then(r => r.json())
+          .then(d => console.log('✅ Keepalive thành công!', new Date().toISOString()))
+          .catch(e => console.error('❌ Lỗi:', e.message));
+          "
+      
+      - name: Verify
+        run: echo "✅ Supabase vẫn hoạt động!"
