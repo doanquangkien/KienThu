@@ -999,9 +999,10 @@ function showDupModal(){
 }
 function selectImportOpt(opt){
   _importOpt=opt;
-  ['overwrite','keep','skip'].forEach(o=>{
-    document.getElementById('opt'+o.charAt(0).toUpperCase()+o.slice(1))
-      .classList.toggle('selected',o===opt);
+  const idMap={overwrite:'optOverwrite',keep:'optKeepBoth',skip:'optSkip'};
+  Object.keys(idMap).forEach(k=>{
+    const el=document.getElementById(idMap[k]);
+    if(el)el.classList.toggle('selected',k===opt);
   });
 }
 function cancelImport(){
@@ -1068,7 +1069,7 @@ function relCls(r){
   const m={'Bạn bè':'rel-ban-be','Đồng nghiệp':'rel-dong-nghiep','Họ hàng':'rel-ho-hang','Hàng xóm':'rel-hang-xom'};
   return m[r]||'rel-other';
 }
-function showLoader(v){document.getElementById('loader').classList.toggle('hidden',!v);}
+function showLoader(v){const el=document.getElementById('loader');if(el)el.classList.toggle('hidden',!v);}
 function showToast(msg,type='info'){
   const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';
   setTimeout(()=>t.classList.remove('show'),3400);
