@@ -871,44 +871,118 @@ async function exportPDF(){
 }
 
 // ── Import with duplicate detection ──────────────────────────────
+function parseImportMoney(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number' && Number.isFinite(v)) return v;
+  const digits=String(v).replace(/[^\d-]/g,'');
+  if(!digits||digits==='-') return 0;
+  const n=Number(digits);
+  return Number.isFinite(n)?n:0;
+}
 function importExcel(e){
-  const file=e.target.files[0];if(!file)return;
+  const input=e.target;
+  const file=input.files&&input.files[0];
+  input.value='';
+  if(!file)return;
+  if(typeof XLSX==='undefined'){
+    showToast('Không tải được thư viện Excel (XLSX). Vui lòng kiểm tra mạng rồi tải lại trang.','error');
+    return;
+  }
+
   const reader=new FileReader();
+  reader.onerror=function(){
+    showToast('Không thể đọc file Excel. Vui lòng thử lại với file khác.','error');
+  };
   reader.onload=function(ev){
-    const wb=XLSX.read(ev.target.result,{type:'binary'});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const raw=XLSX.utils.sheet_to_json(ws,{header:1});
-    const rows=[];
-    for(let i=1;i<raw.length;i++){
-      const r=raw[i];if(!r||!r[1])continue;
-      rows.push({khach_moi:String(r[1]||'').trim(),tien_mung:Number(r[2]||0),moi_quan_he:String(r[3]||''),ghi_chu:String(r[4]||'')});
-    }
-    if(!rows.length){showToast('File trống hoặc sai format','error');return;}
+    try{
+      const data=ev.target&&ev.target.result;
+      const wb=XLSX.read(data,{type:'array'});
+      if(!wb.SheetNames||!wb.SheetNames.length){
+        showToast('File Excel không có sheet dữ liệu.','error');
+        return;
+      }
 
-    // ── Duplicate detection ──
-    const existingNames=new Map(allData.map(r=>[r.khachMoi.toLowerCase().trim(),r]));
-    _importDups=[];
-    _importNewOnly=[];
-    rows.forEach(row=>{
-      const existing=existingNames.get(row.khach_moi.toLowerCase());
-      if(existing){_importDups.push({existing,newRow:row});}
-      else{_importNewOnly.push(row);}
-    });
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false});
+      const rows=[];
 
-    _pendingImport=rows;
-    _importOpt='overwrite';
+      for(let i=0;i<raw.length;i++){
+        const r=raw[i];
+        if(!Array.isArray(r))continue;
 
-    if(_importDups.length===0){
-      // No duplicates → import directly after confirm
-      if(!confirm(`Import ${rows.length} khách mới (không có trùng)?`))return;
-      doImport();
-    }else{
-      // Show duplicate review modal
-      showDupModal();
+        const c0=String(r[0]??'').trim();
+        const c1=String(r[1]??'').trim();
+        const c0Lower=c0.toLowerCase();
+        const c0LooksLikeStt=(c0Lower==='stt'||c0Lower==='so thu tu'||c0Lower==='số thứ tự'||/^\d+$/.test(c0));
+
+        // Hỗ trợ 2 layout:
+        // 1) File xuất từ app: [STT, Khách mời, Tiền, MQH, Note]
+        // 2) File tự nhập:      [Khách mời, Tiền, MQH, Note]
+        let name='',moneyCell='',relCell='',noteCell='';
+        if(c1 && c0LooksLikeStt){
+          name=c1;
+          moneyCell=r[2];
+          relCell=r[3];
+          noteCell=r[4];
+        }else{
+          name=c0;
+          moneyCell=r[1];
+          relCell=r[2];
+          noteCell=r[3];
+        }
+
+        const nameNorm=String(name||'').trim();
+        if(!nameNorm)continue;
+
+        // Bỏ qua dòng header thường gặp
+        const h=nameNorm.toLowerCase();
+        if(
+          h==='khách mời'||
+          h==='khach moi'||
+          h==='tên khách mời'||
+          h==='ten khach moi'||
+          h==='name'
+        )continue;
+
+        rows.push({
+          khach_moi:nameNorm,
+          tien_mung:parseImportMoney(moneyCell),
+          moi_quan_he:String(relCell??'').trim(),
+          ghi_chu:String(noteCell??'').trim()
+        });
+      }
+
+      if(!rows.length){
+        showToast('Không đọc được dữ liệu hợp lệ từ file. Kiểm tra lại cột tên khách.','error');
+        return;
+      }
+
+      // ── Duplicate detection ──
+      const existingNames=new Map(allData.map(r=>[r.khachMoi.toLowerCase().trim(),r]));
+      _importDups=[];
+      _importNewOnly=[];
+      rows.forEach(row=>{
+        const existing=existingNames.get(row.khach_moi.toLowerCase());
+        if(existing){_importDups.push({existing,newRow:row});}
+        else{_importNewOnly.push(row);}
+      });
+
+      _pendingImport=rows;
+      _importOpt='overwrite';
+
+      if(_importDups.length===0){
+        // No duplicates → import directly after confirm
+        if(!confirm(`Import ${rows.length} khách mới (không có trùng)?`))return;
+        doImport();
+      }else{
+        // Show duplicate review modal
+        showDupModal();
+      }
+    }catch(err){
+      showToast('Lỗi đọc file Excel: '+(err&&err.message?err.message:'Không xác định'),'error');
     }
   };
-  reader.readAsBinaryString(file);
-  e.target.value='';
+  reader.readAsArrayBuffer(file);
 }
 
 function showDupModal(){
